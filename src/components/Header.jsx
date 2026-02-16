@@ -1,0 +1,281 @@
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, Phone, Mail, Scan, ChevronDown, User, LogIn, LogOut, LayoutDashboard, ShieldCheck } from 'lucide-react';
+import WhatsAppButton from '@/components/WhatsAppButton';
+import { useAuth } from '@/context/AuthContext';
+import { getSystemSettings } from '@/services/settingsService';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+function Header() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, otpVerified, logout, getUserRole, profile, isProfileLoading } = useAuth();
+  const [dashboardLink, setDashboardLink] = useState('/admin/dashboard');
+  
+  // Default fallback logo
+  const DEFAULT_LOGO = "https://horizons-cdn.hostinger.com/81ef3422-3855-479e-bfe8-28a4ceb0df39/a742e501955dd22251276e445b31816d.png";
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const settings = await getSystemSettings();
+        if (settings && (settings.logo_url || settings.system_logo)) {
+          setLogoUrl(settings.logo_url || settings.system_logo);
+        }
+      } catch (error) {
+        console.warn("Header: Failed to fetch system logo", error);
+      }
+    };
+    
+    fetchLogo();
+  }, [location.pathname]);
+
+  // Determine dashboard link based on role
+  useEffect(() => {
+    const setLink = async () => {
+        if (user) {
+            const role = await getUserRole(user.id);
+            switch(role?.toLowerCase()) {
+                case 'admin': setDashboardLink('/admin/dashboard'); break;
+                case 'student': setDashboardLink('/student/dashboard'); break;
+                case 'shareholder': setDashboardLink('/shareholder/dashboard'); break;
+                case 'applicant': setDashboardLink('/applicant-dashboard'); break;
+                default: setDashboardLink('/admin/dashboard');
+            }
+        }
+    };
+    setLink();
+  }, [user]);
+
+  const handleLogout = async () => {
+      await logout();
+      navigate('/login');
+  };
+
+  const isActive = (path) => {
+      if (path === '/' && location.pathname !== '/') return false;
+      return location.pathname.startsWith(path);
+  };
+
+  const NavLink = ({ to, children, isSpecial }) => (
+    <Link
+      to={to}
+      className={`text-sm xl:text-base font-medium transition-colors duration-300 ${
+        isActive(to)
+          ? 'text-[#D4AF37] border-b-2 border-[#D4AF37] pb-1'
+          : isSpecial ? 'text-[#D4AF37] hover:text-white font-bold' : 'text-white hover:text-[#D4AF37]'
+      }`}
+    >
+      {children}
+    </Link>
+  );
+
+  return (
+    <>
+      <header className="bg-[#003D82] sticky top-0 z-40 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            {/* Logo */}
+            <Link to="/" className="flex items-center space-x-2">
+              <img
+                src={logoUrl || DEFAULT_LOGO}
+                alt="Alpha Bridge Technologies Ltd logo"
+                className="h-[40px] md:h-[50px] lg:h-[60px] object-contain hover:scale-105 hover:opacity-80 transition-all duration-300"
+              />
+            </Link>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center space-x-4 xl:space-x-6">
+              <NavLink to="/">Home</NavLink>
+              <NavLink to="/services">Services</NavLink>
+              <NavLink to="/trainings">Training</NavLink>
+              <NavLink to="/events">Events</NavLink>
+
+              <NavLink to="/register-now">Register Now</NavLink>
+              <NavLink to="/apply-now" isSpecial={true}>Apply Now</NavLink>
+
+              <NavLink to="/about">About Us</NavLink>
+              <NavLink to="/shareholders">Shareholders</NavLink>
+
+              {/* QR Scanner */}
+              <Link 
+                to="/qr-scanner" 
+                className={`text-white hover:text-[#D4AF37] transition-colors flex items-center gap-1 text-sm border border-white/20 px-2 py-1 rounded-md hover:border-[#D4AF37] ${isActive('/qr-scanner') ? 'border-[#D4AF37] text-[#D4AF37]' : ''}`}
+                title="QR Code Scanner"
+              >
+                <Scan className="w-4 h-4" />
+                <span className="hidden xl:inline">Scan QR</span>
+              </Link>
+            </nav>
+
+            {/* Desktop Contact Links & Login */}
+            <div className="hidden lg:flex items-center space-x-4">
+              <a
+                href="tel:+250794006160"
+                className="flex items-center space-x-2 text-white hover:text-[#D4AF37] transition-colors"
+              >
+                <Phone className="w-5 h-5" />
+              </a>
+              <a
+                href="mailto:info@alpha-bridge.net"
+                className="flex items-center space-x-2 text-white hover:text-[#D4AF37] transition-colors mr-2"
+              >
+                <Mail className="w-5 h-5" />
+              </a>
+
+              {user && otpVerified ? (
+                 <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-4 h-10 hover:bg-white/10 text-white border border-transparent hover:border-white/20 rounded-full">
+                       <Avatar className="h-8 w-8 border-2 border-[#D4AF37]">
+                         <AvatarImage src={profile?.avatar_url} />
+                         <AvatarFallback className="bg-[#D4AF37] text-[#003D82] font-bold">
+                            {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
+                         </AvatarFallback>
+                       </Avatar>
+                       <div className="flex flex-col items-start text-xs hidden xl:flex">
+                         <span className="font-bold max-w-[100px] truncate">
+                            {isProfileLoading ? 'Loading...' : (profile?.full_name || user.email?.split('@')[0])}
+                         </span>
+                         <span className="text-[#D4AF37] uppercase text-[10px] tracking-wider">
+                            {profile?.role || 'Member'}
+                         </span>
+                       </div>
+                       <ChevronDown className="w-4 h-4 opacity-50" />
+                     </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="end" className="w-56 bg-white">
+                     <div className="px-2 py-1.5 text-sm font-semibold border-b mb-1 text-gray-700 bg-gray-50/50">
+                        My Account
+                     </div>
+                     <DropdownMenuItem asChild>
+                        <Link to={dashboardLink} className="cursor-pointer">
+                            <LayoutDashboard className="w-4 h-4 mr-2" /> Dashboard
+                        </Link>
+                     </DropdownMenuItem>
+                     <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer">
+                        <LogOut className="w-4 h-4 mr-2" /> Logout
+                     </DropdownMenuItem>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
+              ) : (
+                  <Link to="/login">
+                        <Button 
+                            className="bg-[#002855] border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#003D82] font-medium transition-all"
+                        >
+                            <LogIn className="w-4 h-4 mr-2" /> Login
+                        </Button>
+                  </Link>
+              )}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden text-white hover:text-[#D4AF37] transition-colors"
+            >
+              {mobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden pb-4 animate-slide-in-from-top bg-[#003D82] absolute left-0 right-0 top-20 px-4 shadow-xl border-t border-gray-800 z-50">
+              <nav className="flex flex-col space-y-4 pt-4">
+                <Link to="/" onClick={() => setMobileMenuOpen(false)} className="text-white hover:text-[#D4AF37] text-lg font-medium">Home</Link>
+                <Link to="/services" onClick={() => setMobileMenuOpen(false)} className="text-white hover:text-[#D4AF37] text-lg font-medium">Services</Link>
+                <Link to="/trainings" onClick={() => setMobileMenuOpen(false)} className="text-white hover:text-[#D4AF37] text-lg font-medium">Training</Link>
+                <Link to="/events" onClick={() => setMobileMenuOpen(false)} className="text-white hover:text-[#D4AF37] text-lg font-medium">Events</Link>
+                
+                <Link to="/register-now" onClick={() => setMobileMenuOpen(false)} className="text-white hover:text-[#D4AF37] text-lg font-medium border-t border-gray-700 pt-2">Register Now</Link>
+                
+                <Link to="/apply-now" onClick={() => setMobileMenuOpen(false)} className="text-[#D4AF37] font-bold text-lg flex items-center gap-2 bg-white/10 p-2 rounded-md">
+                    Apply Now
+                </Link>
+
+                <Link to="/about" onClick={() => setMobileMenuOpen(false)} className="text-white hover:text-[#D4AF37] text-lg font-medium">About Us</Link>
+                <Link to="/shareholders" onClick={() => setMobileMenuOpen(false)} className="text-[#D4AF37] hover:text-white text-lg font-medium">Shareholders</Link>
+                
+                <Link 
+                    to="/qr-scanner" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 text-lg font-medium text-white hover:text-[#D4AF37] pt-2 border-t border-gray-700"
+                >
+                    <Scan className="w-5 h-5" /> Scan QR Code
+                </Link>
+
+                <div className="pt-4 border-t border-gray-700 space-y-3">
+                     {user && otpVerified ? (
+                        <>
+                             <div className="flex items-center gap-3 mb-2 px-2">
+                                <Avatar className="h-10 w-10 border-2 border-[#D4AF37]">
+                                    <AvatarImage src={profile?.avatar_url} />
+                                    <AvatarFallback className="bg-[#D4AF37] text-[#003D82] font-bold">
+                                        {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="text-white font-bold">{profile?.full_name || 'User'}</p>
+                                    <p className="text-[#D4AF37] text-xs uppercase">{profile?.role || 'Member'}</p>
+                                </div>
+                             </div>
+
+                            <Link 
+                                to={dashboardLink}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex items-center justify-center gap-2 w-full py-2 rounded bg-[#D4AF37] text-[#003D82] font-bold"
+                            >
+                                <LayoutDashboard className="w-5 h-5" /> Go to Dashboard
+                            </Link>
+                            <Button
+                                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                                variant="outline"
+                                className="w-full text-white border-white/20 hover:bg-white/10"
+                            >
+                                <LogOut className="w-4 h-4 mr-2" /> Logout
+                            </Button>
+                        </>
+                     ) : (
+                        <Link 
+                            to="/login"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center justify-center gap-2 w-full py-2 rounded border border-[#D4AF37] text-[#D4AF37] font-medium"
+                        >
+                            <LogIn className="w-5 h-5" /> Portal Login
+                        </Link>
+                     )}
+                </div>
+
+                <div className="pt-2 space-y-3">
+                  <a
+                    href="tel:+250794006160"
+                    className="flex items-center space-x-2 text-white hover:text-[#D4AF37] transition-colors"
+                  >
+                    <Phone className="w-5 h-5" />
+                    <span>+250 794 006 160</span>
+                  </a>
+                </div>
+              </nav>
+            </div>
+          )}
+        </div>
+      </header>
+      <WhatsAppButton variant="floating" className="fixed bottom-6 right-6 z-50" />
+    </>
+  );
+}
+
+export default Header;
